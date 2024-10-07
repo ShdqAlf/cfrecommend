@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recommendations</title>
+</head>
+<body>
+    <h1>Rekomendasi untuk Semua User</h1>
+    <h2>Item yang belum di-rating oleh setiap user:</h2>
+    <ul>
+        {% for recommendation in all_recommendations %}
+            <li>User: {{ recommendation.user_id }} - Item: {{ recommendation.item }} - Prediksi Rating: {{ recommendation.pred_score }}</li>
+        {% endfor %}
+    </ul>
+
+    <h2>Mean Absolute Error (MAE): {{ mae }}</h2>
+</body>
+</html>
