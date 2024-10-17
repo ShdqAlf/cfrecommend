@@ -7,85 +7,43 @@ from surprise import Reader, Dataset, SVD
 from sklearn.metrics import mean_absolute_error
 from sklearn.metrics.pairwise import cosine_similarity
 from django.http import JsonResponse
+from django.contrib.auth import authenticate, login as auth_login
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth import logout as auth_logout
+from django.contrib.auth.decorators import login_required
 
-def recommendations(request):
-    # Mengambil file csv
-    csv_path = r'E:\Duniawi\Done\Colaborative Filtering\cf-recom\collaborative_filtering.csv'
-    
-    # Baca file CSV
-    df = pd.read_csv(csv_path, delimiter=';', usecols=['user_id', 'item_id', 'rating'])
-    
-    data = Dataset.load_from_df(df, Reader())
-    trainset = data.build_full_trainset()
-    
-    # Model SVD
-    model = SVD()
-    model.fit(trainset)
-    
-    # Semua user
-    all_users = df.user_id.unique()
-    
-    # Semua item
-    all_item = df.item_id.unique()
 
-    # List untuk menyimpan hasil rekomendasi untuk setiap user
-    all_recommendations = []
+def login(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')  # Jika user sudah login, arahkan ke dashboard
 
-    # List untuk menyimpan nilai prediksi dan rating aktual
-    all_actual_ratings = []
-    all_predicted_ratings = []
+    if request.method == 'POST':
+        username = request.POST['username']
+        password = request.POST['password']
+        user = authenticate(request, username=username, password=password)
 
-    for user_id in all_users:
-        # Item yang sudah di-rating oleh user
-        rated_items = df[df.user_id == user_id]
-        
-        # Prediksi untuk item yang sudah di-rating
-        for _, row in rated_items.iterrows():
-            item_id = row['item_id']
-            actual_rating = row['rating']
-            predicted_rating = model.predict(user_id, item_id).est
-            
-            # Simpan rating aktual dan prediksi
-            all_actual_ratings.append(actual_rating)
-            all_predicted_ratings.append(predicted_rating)
+        if user is not None:
+            auth_login(request, user)
+            return redirect('dashboard')  # Redirect ke halaman dashboard setelah login sukses
+        else:
+            messages.error(request, 'Username atau password salah.')  # Menampilkan pesan error
 
-        # Item yang belum di-rating oleh user
-        rated = rated_items.item_id
-        not_rated = [item_id for item_id in all_item if int(item_id) not in rated.values]
-        
-        # Prediksi rating untuk item yang belum di-rating
-        score = [model.predict(user_id, item_id).est for item_id in not_rated]
-        
-        # Gabungkan hasil prediksi dalam bentuk dataframe
-        result = pd.DataFrame({"user_id": user_id, "item": not_rated, "pred_score": score})
-        result.sort_values("pred_score", ascending=False, inplace=True)
+    return render(request, 'login.html')
 
-        # Simpan hasil rekomendasi untuk user ini
-        all_recommendations.append(result)
+def logout(request):
+    auth_logout(request)
+    return redirect('login')  # Arahkan kembali ke halaman login setelah logout
 
-    # Menghitung MAE
-    mae = mean_absolute_error(all_actual_ratings, all_predicted_ratings)
-
-    # Menggabungkan semua rekomendasi
-    all_recommendations_df = pd.concat(all_recommendations)
-
-    # Mengirim hasil ke template HTML
-    context = {
-        "all_recommendations": all_recommendations_df.to_dict(orient='records'),
-        "mae": mae
-    }
-    
-    return render(request, 'dashboard/dashboard.html', context)
-
+@login_required(login_url='login')
 def home(request):
     return render(request, 'dashboard/home.html')
 
-def login(request):
-    return render(request, 'login.html')
-
+@login_required(login_url='login')
 def dashboard(request):
     return render(request, 'admin.html')
 
+@login_required(login_url='login')
 def keloladata(request):
     # Mengambil semua item untuk dijadikan header kolom
     items = Item.objects.all()
@@ -116,6 +74,7 @@ def keloladata(request):
     }
     return render(request, 'keloladata/keloladata.html', context)
 
+@login_required(login_url='login')
 def tambah_pelanggan(request):
     if request.method == 'POST':
         # Mengambil data dari form
@@ -128,7 +87,8 @@ def tambah_pelanggan(request):
 
         # Redirect kembali ke halaman keloladata
         return redirect('keloladata')
-    
+
+@login_required(login_url='login')
 def kelolaitem(request):
      # Mengambil semua item untuk dijadikan header kolom
     items = Item.objects.all()
@@ -139,6 +99,7 @@ def kelolaitem(request):
     
     return render(request, 'kelolaitem/kelolaitem.html', context)
 
+@login_required(login_url='login')
 def tambah_item(request):
     if request.method == 'POST':
         nama_item = request.POST.get('nama_item_baru')
@@ -148,7 +109,8 @@ def tambah_item(request):
         item_baru.save()
 
         return redirect('kelolaitem')
-    
+
+@login_required(login_url='login')
 def hapus_item(request, item_id):
     # Mengambil item berdasarkan ID atau tampilkan 404 jika tidak ditemukan
     item = get_object_or_404(Item, id=item_id)
@@ -159,6 +121,7 @@ def hapus_item(request, item_id):
     # Redirect kembali ke halaman kelolaitem setelah penghapusan
     return redirect('kelolaitem')
 
+@login_required(login_url='login')
 def edit_item(request, item_id):
     # Mengambil item berdasarkan ID atau tampilkan 404 jika tidak ditemukan
     item = get_object_or_404(Item, id=item_id)
@@ -174,6 +137,7 @@ def edit_item(request, item_id):
         # Redirect kembali ke halaman kelolaitem setelah perubahan
         return redirect('kelolaitem')
 
+@login_required(login_url='login')
 def tambah_penilaian(request):
     if request.method == 'POST':
         # Ambil data pelanggan
@@ -199,6 +163,7 @@ def tambah_penilaian(request):
         # Redirect kembali ke halaman keloladata setelah data ditambahkan
         return redirect('keloladata')
 
+@login_required(login_url='login')
 def get_ratings_for_pelanggan(request):
     pelanggan_id = request.GET.get('pelanggan_id')
 
@@ -218,6 +183,7 @@ def get_ratings_for_pelanggan(request):
 
     return JsonResponse({'ratings': ratings_data})
 
+@login_required(login_url='login')
 def hasilrekomendasi(request):
     # Ambil data dari database
     ratings = Rating.objects.all()
@@ -327,6 +293,7 @@ def hasilrekomendasi(request):
     
     return render(request, 'hasilrekomendasi/hasilrekomendasi.html', context)
 
+@login_required(login_url='login')
 # Fungsi untuk mengedit penilaian
 def edit_penilaian(request, pelanggan_id):
     pelanggan = get_object_or_404(User, id=pelanggan_id)
@@ -361,7 +328,7 @@ def edit_penilaian(request, pelanggan_id):
     }
     return render(request, 'edit_penilaian.html', context)
 
-
+@login_required(login_url='login')
 # Fungsi untuk menghapus pelanggan beserta semua penilaiannya
 def hapus_pelanggan(request, pelanggan_id):
     if request.method == 'POST':
