@@ -84,13 +84,13 @@
                             <h4 class="text-section">Admin</h4>
                         </li>
                         <li class="nav-item">
-                            <a href="widgets.html">
+                            <a href="{% url 'hasilrekomendasi' %}">
                                 <i class="icon-chart"></i>
                                 <p>Hasil Rekomendasi User</p>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="widgets.html">
+                            <a href="#">
                                 <i class="icon-user"></i>
                                 <p>Kelola Akun</p>
                             </a>
@@ -174,35 +174,38 @@
                             </li>
 
                             <li class="nav-item topbar-user dropdown hidden-caret">
-                                <a class="dropdown-toggle profile-pic" data-bs-toggle="dropdown" href="#"
-                                    aria-expanded="false">
-                                    <div class="avatar-sm">
-                                        <img src="assets/img/profile.jpg" alt="..." class="avatar-img rounded-circle" />
-                                    </div>
-                                    <span class="profile-username">
-                                        <span class="op-7">Hi,</span>
-                                        <span class="fw-bold">Hizrian</span>
-                                    </span>
+                                <a
+                                  class="dropdown-toggle profile-pic"
+                                  data-bs-toggle="dropdown"
+                                  href="#"
+                                  aria-expanded="false"
+                                >
+                                  <span class="profile-username">
+                                    <span class="op-7">Halo,</span>
+                                    <!-- Menampilkan nama user yang login -->
+                                    <span class="fw-bold">{{ request.user.username }}</span>
+                                  </span>
                                 </a>
                                 <ul class="dropdown-menu dropdown-user animated fadeIn">
-                                    <div class="dropdown-user-scroll scrollbar-outer">
-                                        <li>
-                                            <div class="user-box">
-                                                <div class="avatar-lg">
-                                                    <img src="assets/img/profile.jpg" alt="image profile"
-                                                        class="avatar-img rounded" />
-                                                </div>
-                                                <div class="u-text">
-                                                    <h4>Hizrian</h4>
-                                                    <p class="text-muted">hello@example.com</p>
-                                                    <a href="profile.html"
-                                                        class="btn btn-xs btn-secondary btn-sm">Logout</a>
-                                                </div>
-                                            </div>
-                                        </li>
-                                    </div>
+                                  <div class="dropdown-user-scroll scrollbar-outer">
+                                    <li>
+                                      <div class="user-box">
+                                        <div class="u-text">
+                                          <!-- Menampilkan nama user yang login -->
+                                          <h4>{{ request.user.username }}</h4>
+                                          <!-- Menampilkan email user yang login -->
+                                          <p class="text-muted">{{ request.user.email }}</p>
+                                          <a
+                                            href="{% url 'logout' %}"
+                                            class="btn btn-xs btn-secondary btn-sm"
+                                            >Logout</a
+                                          >
+                                        </div>
+                                      </div>
+                                    </li>
+                                  </div>
                                 </ul>
-                            </li>
+                              </li>
                         </ul>
                     </div>
                 </nav>

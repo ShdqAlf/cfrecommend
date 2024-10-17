@@ -76,7 +76,7 @@
           <div class="sidebar-content">
             <ul class="nav nav-secondary">
               <li class="nav-item">
-                <a href="widgets.html">
+                <a href="{% url 'dashboard' %}">
                   <i class="fas fa-home"></i>
                   <p>Dashboard</p>
                 </a>
@@ -208,34 +208,23 @@
                     href="#"
                     aria-expanded="false"
                   >
-                    <div class="avatar-sm">
-                      <img
-                        src="assets/img/profile.jpg"
-                        alt="..."
-                        class="avatar-img rounded-circle"
-                      />
-                    </div>
                     <span class="profile-username">
-                      <span class="op-7">Hi,</span>
-                      <span class="fw-bold">Hizrian</span>
+                      <span class="op-7">Halo,</span>
+                      <!-- Menampilkan nama user yang login -->
+                      <span class="fw-bold">{{ request.user.username }}</span>
                     </span>
                   </a>
                   <ul class="dropdown-menu dropdown-user animated fadeIn">
                     <div class="dropdown-user-scroll scrollbar-outer">
                       <li>
                         <div class="user-box">
-                          <div class="avatar-lg">
-                            <img
-                              src="assets/img/profile.jpg"
-                              alt="image profile"
-                              class="avatar-img rounded"
-                            />
-                          </div>
                           <div class="u-text">
-                            <h4>Hizrian</h4>
-                            <p class="text-muted">hello@example.com</p>
+                            <!-- Menampilkan nama user yang login -->
+                            <h4>{{ request.user.username }}</h4>
+                            <!-- Menampilkan email user yang login -->
+                            <p class="text-muted">{{ request.user.email }}</p>
                             <a
-                              href="profile.html"
+                              href="{% url 'logout' %}"
                               class="btn btn-xs btn-secondary btn-sm"
                               >Logout</a
                             >
