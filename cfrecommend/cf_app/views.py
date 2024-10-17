@@ -2,10 +2,10 @@ import os
 from .models import Rating, User, Item
 from django.shortcuts import render
 from django.shortcuts import get_object_or_404, redirect
-from .models import User  # Pastikan User adalah model pelanggan Anda
 import pandas as pd
 from surprise import Reader, Dataset, SVD
 from sklearn.metrics import mean_absolute_error
+from sklearn.metrics.pairwise import cosine_similarity
 from django.http import JsonResponse
 
 def recommendations(request):
@@ -218,6 +218,161 @@ def get_ratings_for_pelanggan(request):
 
     return JsonResponse({'ratings': ratings_data})
 
+def hasilrekomendasi(request):
+    # Ambil data dari database
+    ratings = Rating.objects.all()
+
+    # Konversi data dari database menjadi DataFrame
+    data_dict = {
+        'user_id': [rating.user.id for rating in ratings],
+        'item_id': [rating.item.id for rating in ratings],
+        'rating': [rating.rating for rating in ratings]
+    }
+    
+    df = pd.DataFrame(data_dict)
+
+    # Jika tidak ada data, kembalikan respons kosong
+    if df.empty:
+        context = {
+            "all_recommendations": [],
+            "mae": None
+        }
+        return render(request, 'hasilrekomendasi/hasilrekomendasi.html', context)
+
+    # Pivot tabel untuk membuat matriks user-item
+    user_item_matrix = df.pivot_table(index='user_id', columns='item_id', values='rating')
+
+    # Mengganti NaN dengan 0, karena cosine similarity tidak bisa menangani nilai NaN
+    user_item_matrix.fillna(0, inplace=True)
+
+    # Menghitung kemiripan antar item menggunakan cosine similarity
+    item_similarity = cosine_similarity(user_item_matrix.T)  # Transpose untuk menghitung antar item
+    item_similarity_df = pd.DataFrame(item_similarity, index=user_item_matrix.columns, columns=user_item_matrix.columns)
+
+    # List untuk menyimpan hasil rekomendasi dan nilai prediksi serta rating aktual
+    all_recommendations = []
+    all_actual_ratings = []
+    all_predicted_ratings = []
+
+    for user_id in df['user_id'].unique():
+        # Item yang sudah di-rating oleh user
+        rated_items = df[df['user_id'] == user_id]
+        user_rated_items = rated_items['item_id'].tolist()
+
+        # Mencari item yang mirip dengan item yang sudah di-rating
+        not_rated = [item_id for item_id in user_item_matrix.columns if item_id not in user_rated_items]
+        
+        # Untuk setiap item yang belum di-rating, prediksi skor berdasarkan item-item serupa
+        recommendations = []
+        for item in not_rated:
+            # Mengambil item-item yang sudah di-rating oleh user
+            similar_items = item_similarity_df[item].sort_values(ascending=False)
+
+            # Menghitung skor prediksi: rata-rata dari rating item-item yang mirip
+            weighted_sum = 0
+            sim_sum = 0
+            for similar_item, similarity in similar_items.items():
+                if similar_item in user_rated_items:
+                    rating = rated_items[rated_items['item_id'] == similar_item]['rating'].values[0]
+                    weighted_sum += similarity * rating
+                    sim_sum += similarity
+
+            # Jika tidak ada kesamaan, prediksi 0
+            predicted_rating = weighted_sum / sim_sum if sim_sum != 0 else 0
+
+            recommendations.append({
+                'user_id': user_id,
+                'item_id': item,
+                'pred_score': predicted_rating
+            })
+
+        # Simpan hasil rekomendasi untuk user ini
+        all_recommendations.extend(recommendations)
+
+        # Simpan rating aktual dan prediksi untuk menghitung MAE
+        for _, row in rated_items.iterrows():
+            actual_rating = row['rating']
+            similar_items = item_similarity_df[row['item_id']].sort_values(ascending=False)
+            weighted_sum = 0
+            sim_sum = 0
+            for similar_item, similarity in similar_items.items():
+                if similar_item in user_rated_items:
+                    rating = rated_items[rated_items['item_id'] == similar_item]['rating'].values[0]
+                    weighted_sum += similarity * rating
+                    sim_sum += similarity
+            predicted_rating = weighted_sum / sim_sum if sim_sum != 0 else 0
+
+            all_actual_ratings.append(actual_rating)
+            all_predicted_ratings.append(predicted_rating)
+
+    # Menghitung MAE (Mean Absolute Error)
+    mae = mean_absolute_error(all_actual_ratings, all_predicted_ratings)
+
+    # Mengubah hasil rekomendasi menjadi DataFrame untuk kemudahan manipulasi
+    all_recommendations_df = pd.DataFrame(all_recommendations)
+
+    # Mengambil nama user dan nama item dari database berdasarkan rekomendasi
+    all_recommendations_df['user_name'] = all_recommendations_df['user_id'].apply(
+        lambda x: User.objects.get(id=x).name
+    )
+    all_recommendations_df['item_name'] = all_recommendations_df['item_id'].apply(
+        lambda x: Item.objects.get(id=x).name
+    )
+
+    # Mengirim hasil ke template HTML
+    context = {
+        "all_recommendations": all_recommendations_df.to_dict(orient='records'),
+        "mae": mae
+    }
+    
+    return render(request, 'hasilrekomendasi/hasilrekomendasi.html', context)
+
+# Fungsi untuk mengedit penilaian
+def edit_penilaian(request, pelanggan_id):
+    pelanggan = get_object_or_404(User, id=pelanggan_id)
+    items = Item.objects.all()
+
+    if request.method == 'POST':
+        for item in items:
+            rating_value = request.POST.get(f'item_{item.id}')
+
+            # Cek apakah nilai dihapus (kosong)
+            if rating_value == '':
+                # Jika kosong, hapus rating untuk item tersebut
+                Rating.objects.filter(user=pelanggan, item=item).delete()
+            else:
+                rating_value = float(rating_value)
+                rating, created = Rating.objects.get_or_create(user=pelanggan, item=item)
+                rating.rating = rating_value
+                rating.save()
+
+        return redirect('keloladata')
+
+    # Ambil penilaian untuk pelanggan
+    user_ratings = {}
+    for item in items:
+        rating = Rating.objects.filter(user=pelanggan, item=item).first()
+        user_ratings[item.id] = rating.rating if rating else None
+
+    context = {
+        'pelanggan': pelanggan,
+        'items': items,
+        'user_ratings': user_ratings,
+    }
+    return render(request, 'edit_penilaian.html', context)
 
 
+# Fungsi untuk menghapus pelanggan beserta semua penilaiannya
+def hapus_pelanggan(request, pelanggan_id):
+    if request.method == 'POST':
+        # Ambil pelanggan berdasarkan pelanggan_id
+        pelanggan = get_object_or_404(User, id=pelanggan_id)
 
+        # Hapus semua rating terkait pelanggan ini
+        Rating.objects.filter(user=pelanggan).delete()
+
+        # Hapus pelanggan itu sendiri
+        pelanggan.delete()
+
+        # Redirect kembali ke halaman keloladata setelah pelanggan dihapus
+        return redirect('keloladata')

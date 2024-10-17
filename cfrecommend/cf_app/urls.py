@@ -15,4 +15,7 @@ urlpatterns = [
     path('hapus-item/<int:item_id>/', views.hapus_item, name='hapus_item'),
     path('edit-item/<int:item_id>/', views.edit_item, name='edit_item'),
     path('get-ratings-for-pelanggan/', views.get_ratings_for_pelanggan, name='get_ratings_for_pelanggan'),
+    path('hasilrekomendasi/', views.hasilrekomendasi, name='hasilrekomendasi'),
+    path('edit-penilaian/<int:pelanggan_id>/', views.edit_penilaian, name='edit_penilaian'),
+    path('hapus-pelanggan/<int:pelanggan_id>/', views.hapus_pelanggan, name='hapus_pelanggan'),
 ]
