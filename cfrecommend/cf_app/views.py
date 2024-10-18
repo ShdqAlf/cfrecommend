@@ -1,9 +1,7 @@
-import os
 from .models import Rating, User, Item
 from django.shortcuts import render
 from django.shortcuts import get_object_or_404, redirect
 import pandas as pd
-from surprise import Reader, Dataset, SVD
 from sklearn.metrics import mean_absolute_error
 from sklearn.metrics.pairwise import cosine_similarity
 from django.http import JsonResponse
@@ -12,7 +10,6 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
-
 
 def login(request):
     if request.user.is_authenticated:
