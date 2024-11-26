@@ -1,4 +1,5 @@
 from .models import Rating, User, Item
+from django.contrib.auth.models import User as AuthUser, Group  # Alias untuk Django User
 from django.shortcuts import render
 from django.shortcuts import get_object_or_404, redirect
 import pandas as pd
@@ -10,6 +11,16 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
+
+@login_required(login_url='login')
+def dashboard(request):
+    is_admin = request.user.groups.filter(name="Admin").exists()
+    is_user = request.user.groups.filter(name="User").exists()
+    context = {
+        'is_admin': is_admin,
+        'is_user': is_user,
+    }
+    return render(request, 'admin.html', context)
 
 def login(request):
     if request.user.is_authenticated:
@@ -37,8 +48,74 @@ def home(request):
     return render(request, 'dashboard/home.html')
 
 @login_required(login_url='login')
-def dashboard(request):
-    return render(request, 'admin.html')
+def kelolauser(request):
+    is_admin = request.user.groups.filter(name="Admin").exists()
+    is_user = request.user.groups.filter(name="User").exists()
+
+    # Ambil semua data user dari AuthUser
+    users = AuthUser.objects.prefetch_related('groups').all()
+
+    context = {
+        'is_admin': is_admin,
+        'is_user': is_user,
+        'users': users,  # Gunakan AuthUser untuk konteks
+    }
+    return render(request, 'kelolauser/kelolauser.html', context)
+
+@login_required(login_url='login')
+def add_user(request):
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        role = request.POST.get('role')
+
+        # Validasi apakah username sudah ada
+        if AuthUser.objects.filter(username=username).exists():
+            messages.error(request, f'Username "{username}" sudah digunakan.')
+            return redirect('kelolauser')
+
+        # Buat user baru
+        user = AuthUser.objects.create_user(username=username, email=email, password=password)
+
+        # Tambahkan user ke grup sesuai role
+        group = Group.objects.get(name=role)
+        user.groups.add(group)
+
+        messages.success(request, f'User "{username}" berhasil ditambahkan.')
+        return redirect('kelolauser')
+
+    return redirect('kelolauser')  # Redirect jika bukan POST
+
+@login_required(login_url='login')
+def edit_password(request, user_id):
+    if request.method == 'POST':
+        user = get_object_or_404(AuthUser, id=user_id)
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
+
+        if new_password != confirm_password:
+            messages.error(request, 'Password baru dan konfirmasi tidak cocok.')
+        else:
+            user.set_password(new_password)
+            user.save()
+            messages.success(request, f'Password untuk user {user.username} berhasil diubah.')
+
+    return redirect('kelolauser')  # Redirect ke halaman kelola user
+
+@login_required(login_url='login')
+def delete_user(request, user_id):
+    if request.method == 'POST':
+        user = get_object_or_404(AuthUser, id=user_id)
+        user.delete()
+        messages.success(request, f'User {user.username} berhasil dihapus.')
+
+    return redirect('kelolauser')  # Redirect ke halaman kelola user
+
+
+@login_required(login_url='login')
+def hubungiadmin(request):
+    return render(request, 'hubungiadmin/hubungiadmin.html')
 
 @login_required(login_url='login')
 def keloladata(request):
@@ -63,11 +140,16 @@ def keloladata(request):
             })
         user_ratings.append(user_rating)
 
+    is_admin = request.user.groups.filter(name="Admin").exists()
+    is_user = request.user.groups.filter(name="User").exists()
+
     # Mengirimkan data ke template
     context = {
         'user_ratings': user_ratings,
         'items': items,
-        'pelanggan_list': pelanggan_list,  # Tambahkan pelanggan_list ke context
+        'pelanggan_list': pelanggan_list,
+        'is_admin': is_admin,
+        'is_user': is_user,
     }
     return render(request, 'keloladata/keloladata.html', context)
 
@@ -90,8 +172,13 @@ def kelolaitem(request):
      # Mengambil semua item untuk dijadikan header kolom
     items = Item.objects.all()
 
+    is_admin = request.user.groups.filter(name="Admin").exists()
+    is_user = request.user.groups.filter(name="User").exists()
+
     context= {
-        'items': items
+        'items': items,
+        'is_admin': is_admin,
+        'is_user': is_user,
     }
     
     return render(request, 'kelolaitem/kelolaitem.html', context)
@@ -282,10 +369,14 @@ def hasilrekomendasi(request):
         lambda x: Item.objects.get(id=x).name
     )
 
+    is_admin = request.user.groups.filter(name="Admin").exists()
+    is_user = request.user.groups.filter(name="User").exists()
     # Mengirim hasil ke template HTML
     context = {
         "all_recommendations": all_recommendations_df.to_dict(orient='records'),
-        "mae": mae
+        "mae": mae,
+        'is_admin': is_admin,
+        'is_user': is_user,
     }
     
     return render(request, 'hasilrekomendasi/hasilrekomendasi.html', context)
