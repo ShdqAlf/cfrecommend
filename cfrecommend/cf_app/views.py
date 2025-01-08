@@ -17,9 +17,50 @@ from django.db.models import Count
 def dashboard(request):
     is_admin = request.user.groups.filter(name="Admin").exists()
     is_user = request.user.groups.filter(name="User").exists()
+
+    # Ambil semua item
+    items = Item.objects.all()
+
+    # Ambil data rekomendasi (menggunakan logika sebelumnya)
+    pesanan = Pesanan.objects.select_related('item', 'user').all()
+    item_counts = pesanan.values('item__name').annotate(total=Count('item')).order_by('-total')
+
+    rekomendasi = {}
+    for item in item_counts:
+        item_name = item['item__name']
+        total_count = item['total']
+        related_items = (
+            pesanan.filter(user__in=pesanan.filter(item__name=item_name).values('user'))
+            .exclude(item__name=item_name)
+            .values('item__name')
+            .annotate(total=Count('item'))
+            .order_by('-total')
+        )
+        rekomendasi[item_name] = {
+            'count': total_count,
+            'related': [
+                {'name': rel_item['item__name'], 'count': rel_item['total']}
+                for rel_item in related_items
+            ],
+        }
+
+    # Format data rekomendasi
+    rekomendasi_list = [
+        {
+            'utama': key,
+            'utama_count': value['count'],
+            'pendamping': ', '.join(
+                [f"{rel['name']} ({rel['count']})" for rel in value['related']]
+            ),
+        }
+        for key, value in rekomendasi.items()
+    ]
+
     context = {
         'is_admin': is_admin,
         'is_user': is_user,
+        'items': items,  # Data untuk daftar semua item
+        'rekomendasi_list': rekomendasi_list,  # Data untuk rekomendasi
     }
     return render(request, 'admin.html', context)
 
