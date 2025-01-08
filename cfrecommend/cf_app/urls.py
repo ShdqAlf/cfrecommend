@@ -23,4 +23,7 @@ urlpatterns = [
     path('hasilrekomendasi/', views.hasilrekomendasi, name='hasilrekomendasi'),
     path('edit-penilaian/<int:pelanggan_id>/', views.edit_penilaian, name='edit_penilaian'),
     path('hapus-pelanggan/<int:pelanggan_id>/', views.hapus_pelanggan, name='hapus_pelanggan'),
+    path('kelolapesanan/', views.kelolapesanan, name='kelolapesanan'),
+    path('tambah-pesanan/', views.tambah_pesanan, name='tambah_pesanan'),
+    path('rekomendasiuser/', views.rekomendasiuser, name='rekomendasiuser'),
 ]

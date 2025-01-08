@@ -34,7 +34,7 @@
               <p>Dashboard</p>
             </a>
           </li>
-        
+
           {% if is_admin %}
             <li class="nav-section">
               <span class="sidebar-mini-icon">
@@ -43,21 +43,15 @@
               <h4 class="text-section">Admin</h4>
             </li>
             <li class="nav-item">
-              <a href="{% url 'hasilrekomendasi' %}">
+              <a href="{% url 'rekomendasiuser' %}">
                 <i class="icon-chart"></i>
                 <p>Hasil Rekomendasi User</p>
               </a>
             </li>
             <li class="nav-item">
-              <a href="{% url 'kelolauser' %}">
-                <i class="icon-user"></i>
-                <p>Kelola Akun</p>
-              </a>
-            </li>
-            <li class="nav-item">
-              <a href="{% url 'keloladata' %}">
+              <a href="{% url 'kelolapesanan' %}">
                 <i class="icon-folder"></i>
-                <p>Kelola Penilaian</p>
+                <p>Kelola Pesanan</p>
               </a>
             </li>
             <li class="nav-item">
@@ -67,7 +61,7 @@
               </a>
             </li>
           {% endif %}
-        
+
           {% if is_user %}
             <li class="nav-section">
               <span class="sidebar-mini-icon">

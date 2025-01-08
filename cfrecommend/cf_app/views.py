@@ -1,4 +1,4 @@
-from .models import Rating, User, Item
+from .models import Rating, User, Item, Pesanan
 from django.contrib.auth.models import User as AuthUser, Group  # Alias untuk Django User
 from django.shortcuts import render
 from django.shortcuts import get_object_or_404, redirect
@@ -11,6 +11,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
+from django.db.models import Count
 
 @login_required(login_url='login')
 def dashboard(request):
@@ -46,6 +47,32 @@ def logout(request):
 @login_required(login_url='login')
 def home(request):
     return render(request, 'dashboard/home.html')
+
+@login_required(login_url='login')
+def kelolapesanan(request):
+    # Mengambil semua user untuk dropdown pelanggan
+    pelanggan_list = User.objects.all()
+
+    # Mengambil semua pesanan untuk ditampilkan dalam tabel pesanan
+    pesanan_list = Pesanan.objects.select_related('user', 'item').all()
+
+    # Mengambil semua item untuk dropdown
+    items = Item.objects.all()
+
+    # Mengecek role pengguna
+    is_admin = request.user.groups.filter(name="Admin").exists()
+    is_user = request.user.groups.filter(name="User").exists()
+
+    # Mengirimkan data ke template
+    context = {
+        'items': items,
+        'pelanggan_list': pelanggan_list,
+        'pesanan_list': pesanan_list,
+        'is_admin': is_admin,
+        'is_user': is_user,
+    }
+
+    return render(request, 'kelolapesanan/kelolapesanan.html', context)
 
 @login_required(login_url='login')
 def kelolauser(request):
@@ -248,6 +275,28 @@ def tambah_penilaian(request):
         return redirect('keloladata')
 
 @login_required(login_url='login')
+def tambah_pesanan(request):
+    if request.method == 'POST':
+        # Ambil data pelanggan
+        pelanggan_id = request.POST.get('pelanggan_id')
+        pelanggan = get_object_or_404(User, id=pelanggan_id)
+
+        # Ambil item_id dari form
+        item_id = request.POST.get('item_id')
+        item = get_object_or_404(Item, id=item_id)
+
+        # Simpan pesanan ke database
+        pesanan = Pesanan(user=pelanggan, item=item)
+        pesanan.save()
+
+        # Redirect ke halaman daftar pesanan
+        return redirect('kelolapesanan')
+
+    # Jika request bukan POST, kembalikan ke halaman sebelumnya
+    return redirect('kelolapesanan')
+
+
+@login_required(login_url='login')
 def get_ratings_for_pelanggan(request):
     pelanggan_id = request.GET.get('pelanggan_id')
 
@@ -380,6 +429,62 @@ def hasilrekomendasi(request):
     }
     
     return render(request, 'hasilrekomendasi/hasilrekomendasi.html', context)
+
+@login_required(login_url='login')
+def rekomendasiuser(request):
+    # Ambil semua pesanan dari database
+    pesanan = Pesanan.objects.select_related('item', 'user').all()
+
+    # Hitung total pesanan untuk setiap item
+    item_counts = pesanan.values('item__name').annotate(total=Count('item')).order_by('-total')
+
+    # Buat dictionary untuk menyimpan item dan kombinasi pendamping
+    rekomendasi = {}
+
+    for item in item_counts:
+        item_name = item['item__name']
+        total_count = item['total']
+
+        # Cari item yang sering dipesan bersama dengan item ini
+        related_items = (
+            pesanan.filter(user__in=pesanan.filter(item__name=item_name).values('user'))
+            .exclude(item__name=item_name)
+            .values('item__name')
+            .annotate(total=Count('item'))
+            .order_by('-total')
+        )
+
+        # Simpan dalam dictionary rekomendasi
+        rekomendasi[item_name] = {
+            'count': total_count,
+            'related': [
+                {'name': rel_item['item__name'], 'count': rel_item['total']}
+                for rel_item in related_items
+            ],
+        }
+
+    # Konversi rekomendasi menjadi format untuk template
+    rekomendasi_list = [
+        {
+            'utama': key,
+            'utama_count': value['count'],
+            'pendamping': ', '.join(
+                [f"{rel['name']} ({rel['count']})" for rel in value['related']]
+            ),
+        }
+        for key, value in rekomendasi.items()
+    ]
+
+    is_admin = request.user.groups.filter(name="Admin").exists()
+    is_user = request.user.groups.filter(name="User").exists()
+
+    context = {
+        'rekomendasi_list': rekomendasi_list,
+        'is_admin': is_admin,
+        'is_user': is_user,
+    }
+
+    return render(request, 'rekomendasiuser/rekomendasiuser.html', context)
 
 @login_required(login_url='login')
 # Fungsi untuk mengedit penilaian

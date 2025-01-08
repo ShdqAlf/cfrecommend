@@ -88,11 +88,10 @@
               <h6 class="op-7 mb-2">Kelola Penilaian Pelanggan</h6>
             </div>
             <div class="ms-md-auto py-2 py-md-0">
-              <a href="#" class="btn btn-label-danger btn-round me-2">Kosongkan Data</a>
               <button type="button" class="btn btn-primary btn-round" data-bs-toggle="modal"
                 data-bs-target="#tambahModal" style="float: right;">Tambah Data</button>
-              <button type="button" class="btn btn-label-success btn-round" data-bs-toggle="modal"
-                data-bs-target="#imporModal" style="float: right;">Impor Data</button>
+              <!-- <button type="button" class="btn btn-label-success btn-round" data-bs-toggle="modal"
+                data-bs-target="#imporModal" style="float: right;">Impor Data</button> -->
             </div>
           </div>
 
@@ -131,9 +130,8 @@
                 </div>
                 <div class="modal-body">
                   <!-- Form untuk input data -->
-                  <form action="{% url 'tambah_penilaian' %}" method="POST">
+                  <form action="{% url 'tambah_pesanan' %}" method="POST">
                     {% csrf_token %}
-
                     <!-- Nama Pelanggan dengan search dropdown dan button pelanggan baru -->
                     <div class="mb-3">
                       <label for="nama_pelanggan" class="form-label">Nama Pelanggan</label>
@@ -147,7 +145,7 @@
                             </option>
                             {% endfor %}
                           </datalist>
-                          <input type="" id="pelanggan_id" name="pelanggan_id" />
+                          <input type="hidden" id="pelanggan_id" name="pelanggan_id" />
                         </div>
                         <div class="col-sm-2">
                           <button class="btn btn-primary ms-2" type="button" id="mapButton" data-bs-toggle="modal"
@@ -159,13 +157,15 @@
                     </div>
 
                     <!-- Looping input item -->
-                    {% for item in items %}
                     <div class="mb-3">
-                      <label for="item_{{ item.id }}" class="form-label">Nilai {{ item.name }}</label>
-                      <input type="number" min="0" class="form-control" id="item_{{ item.id }}"
-                        name="item_{{ item.id }}" placeholder="Masukkan nilai {{ item.name }} (1-5)">
+                      <label for="item_{{ item.id }}" class="form-label">Item Dipesan</label>
+                      <select class="form-select" name="item_id" aria-label="Default select example" required>
+                        <option selected value="">Pilih menu yang dipesan</option>
+                        {% for item in items %}
+                        <option value="{{ item.id }}">{{ item.name }}</option>
+                        {% endfor %}
+                      </select>                   
                     </div>
-                    {% endfor %}
                     <!-- End looping item -->
 
                 </div>
@@ -222,82 +222,30 @@
                 <div class="card-body">
                   <div class="row">
                     <div class="table-responsive table-hover table-sales">
-                      <table class="table table-striped" id="table1">
-                        <thead>
-                          <tr>
-                            <th style="text-align: center;">No</th>
-                            <th style="text-align: center;">Nama Pelanggan</th>
-                            <th style="text-align: center;">Nomor Telpon</th>
-                            <!-- Looping Item sebagai Header Kolom -->
-                            {% for item in items %}
-                            <th style="text-align: center;">{{ item.name }}</th>
-                            {% endfor %}
-                            <th style="text-align: center;">Aksi</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {% for user_rating in user_ratings %}
-                          <tr>
-                            <td style="text-align: center;">{{ forloop.counter }}</td>
-                            <td style="text-align: center;">{{ user_rating.user.name }}</td>
-                            <td style="text-align: center;">{{ user_rating.user.no_telp }}</td>
-                            <!-- Looping Rating untuk Setiap Item -->
-                            {% for rating in user_rating.ratings %}
-                            <td style="text-align: center;">{{ rating.rating|floatformat:0 }}</td>
-                            {% endfor %}
-                            <td style="text-align: center;">
-                              <!-- Tombol Hapus -->
-                              <form action="{% url 'hapus_pelanggan' user_rating.user.id %}" method="POST"
-                                style="display:inline-block;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-danger"
-                                  onclick="return confirm('Apakah kamu yakin ingin menghapus pelanggan dan semua penilaiannya?')">Hapus</button>
-                              </form>
-
-                              <!-- Tombol Edit -->
-                              <button class="btn btn-warning" data-bs-toggle="modal"
-                                data-bs-target="#editModal{{ user_rating.user.id }}">Edit</button>
-                            </td>
-
-                            <!-- Modal Edit -->
-                            <div class="modal fade" id="editModal{{ user_rating.user.id }}" tabindex="-1"
-                              aria-labelledby="editModalLabel{{ user_rating.user.id }}" aria-hidden="true">
-                              <div class="modal-dialog">
-                                <div class="modal-content">
-                                  <div class="modal-header">
-                                    <h5 class="modal-title" id="editModalLabel{{ user_rating.user.id }}">Edit Penilaian
-                                      untuk {{ user_rating.user.name }}</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                      aria-label="Close"></button>
-                                  </div>
-                                  <div class="modal-body">
-                                    <!-- Form untuk edit data -->
-                                    <form action="{% url 'edit_penilaian' user_rating.user.id %}" method="POST">
-                                      {% csrf_token %}
-
-                                      <!-- Looping input untuk setiap item -->
-                                      {% for item in user_rating.ratings %}
-                                      <div class="mb-3">
-                                        <label for="item_{{ item.item.id }}" class="form-label">Nilai {{ item.item.name }}</label>
-                                        <input type="number" min="0" class="form-control" id="item_{{ item.item.id }}"
-                                          name="item_{{ item.item.id }}" value="{{ item.rating }}">
-                                      </div>
-                                      {% endfor %}
-
-                                      <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary"
-                                          data-bs-dismiss="modal">Tutup</button>
-                                        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
-                                      </div>
-                                    </form>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </tr>
-                          {% endfor %}
-                        </tbody>
-                      </table>
+                        <table class="table table-striped" id="table1">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: center;">No</th>
+                                    <th style="text-align: center;">Nama Pelanggan</th>
+                                    <th style="text-align: center;">Nomor Telpon</th>
+                                    <th style="text-align: center;">Item yang Dipesan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pesanan in pesanan_list %}
+                                <tr>
+                                    <td style="text-align: center;">{{ forloop.counter }}</td>
+                                    <td style="text-align: center;">{{ pesanan.user.name }}</td>
+                                    <td style="text-align: center;">{{ pesanan.user.no_telp }}</td>
+                                    <td style="text-align: center;">{{ pesanan.item.name }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" style="text-align: center;">Tidak ada pesanan.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>                        
                     </div>
                   </div>
                 </div>
@@ -307,6 +255,23 @@
         </div>
       </div>
 
+      <script>
+        document.getElementById('nama_pelanggan').addEventListener('input', function () {
+          const selectedValue = this.value;
+          const dataList = document.getElementById('suggestions');
+          const hiddenInput = document.getElementById('pelanggan_id');
+      
+          // Cari ID berdasarkan nama yang dipilih
+          const option = Array.from(dataList.options).find(option => option.value === selectedValue);
+      
+          if (option) {
+            hiddenInput.value = option.getAttribute('data-id'); // Set nilai ID ke input hidden
+          } else {
+            hiddenInput.value = ''; // Kosongkan jika tidak cocok
+          }
+        });
+      </script>
+      
       <!-- Footer -->
       {% include "layout/footer.html" %}
       <!-- End Footer -->
