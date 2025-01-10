@@ -581,3 +581,82 @@ def hapus_pelanggan(request, pelanggan_id):
 
         # Redirect kembali ke halaman keloladata setelah pelanggan dihapus
         return redirect('keloladata')
+    
+@login_required(login_url='login')
+def pilihitem(request):
+    # Mengambil semua item untuk dropdown
+    items = Item.objects.all()
+
+    # Mengecek role pengguna
+    is_admin = request.user.groups.filter(name="Admin").exists()
+    is_user = request.user.groups.filter(name="User").exists()
+
+    # Mengirimkan data ke template
+    context = {
+        'items': items,
+        'is_admin': is_admin,
+        'is_user': is_user,
+    }
+
+    return render(request, 'rekomendasipelayan/pilihitem.html', context)
+
+@login_required(login_url='login')
+def rekomendasipelayan(request):
+    # Ambil semua pesanan dari database
+    pesanan = Pesanan.objects.select_related('item', 'user').all()
+
+    # Buat DataFrame dengan data pengguna dan item
+    data = pd.DataFrame(list(pesanan.values('user_id', 'item_id')))
+    
+    # Buat matriks user-item
+    user_item_matrix = data.pivot_table(index='user_id', columns='item_id', aggfunc='size', fill_value=0)
+    
+    # Hitung kesamaan antar item menggunakan cosine similarity
+    item_similarity = cosine_similarity(user_item_matrix.T)
+    item_similarity_df = pd.DataFrame(item_similarity, index=user_item_matrix.columns, columns=user_item_matrix.columns)
+
+    # Dapatkan item yang dipilih dari form
+    if request.method == 'POST':
+        selected_item_id = int(request.POST.get('item_id'))
+    else:
+        # Jika tidak ada item yang dipilih, arahkan kembali ke halaman pilihitem
+        return redirect('pilihitem')
+
+    # Cari nama item utama dan jumlah pesanannya
+    utama_name = Pesanan.objects.filter(item_id=selected_item_id).first().item.name
+    utama_count = pesanan.filter(item_id=selected_item_id).count()
+
+    # Cari item yang paling mirip berdasarkan nilai kesamaan
+    similar_items = item_similarity_df[selected_item_id].sort_values(ascending=False)[1:6]  # Ambil 5 item paling mirip
+    rekomendasi = {
+        'utama': utama_name,
+        'utama_count': utama_count,  # Tambahkan jumlah pesanan item utama
+        'pendamping': [
+            {
+                'name': Pesanan.objects.filter(item_id=sim_item).first().item.name,
+                'count': pesanan.filter(item_id=sim_item).count(),  # Jumlah pesanan item pendamping
+            }
+            for sim_item, similarity in similar_items.items() if similarity > 0.0  # Filter similarity > 0.0
+        ]
+    }
+
+    # Konversi rekomendasi menjadi format untuk template
+    rekomendasi_list = [
+        {
+            'utama': f"{rekomendasi['utama']} ({rekomendasi['utama_count']})",  # Tambahkan jumlah pesanan utama ke string
+            'pendamping': ', '.join(
+                [f"{rel['name']} ({rel['count']})" for rel in rekomendasi['pendamping']]  # Tampilkan jumlah pesanan pendamping
+            ),
+        }
+    ]
+
+    is_admin = request.user.groups.filter(name="Admin").exists()
+    is_user = request.user.groups.filter(name="User").exists()
+
+    context = {
+        'rekomendasi_list': rekomendasi_list,
+        'is_admin': is_admin,
+        'is_user': is_user,
+    }
+
+    return render(request, 'rekomendasipelayan/rekomendasipelayan.html', context)

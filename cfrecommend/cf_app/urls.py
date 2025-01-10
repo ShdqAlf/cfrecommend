@@ -26,4 +26,6 @@ urlpatterns = [
     path('kelolapesanan/', views.kelolapesanan, name='kelolapesanan'),
     path('tambah-pesanan/', views.tambah_pesanan, name='tambah_pesanan'),
     path('rekomendasiuser/', views.rekomendasiuser, name='rekomendasiuser'),
+    path('pilihitem/', views.pilihitem, name='pilihitem'),
+    path('rekomendasipelayan/', views.rekomendasipelayan, name='rekomendasipelayan'),
 ]

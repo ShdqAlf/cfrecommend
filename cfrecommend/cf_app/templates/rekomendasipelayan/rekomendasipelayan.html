@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+  {% load static %}
+  {% include "layout/head.html" %}
+  <body>
+    <div class="wrapper">
+      <!-- Sidebar -->
+      {% include "layout/side.html" %}
+      <!-- End Sidebar -->
+
+      <div class="main-panel">
+        <div class="main-header">
+          <div class="main-header-logo">
+            <!-- Logo Header -->
+            <div class="logo-header" data-background-color="dark">
+              <a href="index.html" class="logo">
+                <img
+                  src="assets/img/kaiadmin/logo_light.svg"
+                  alt="navbar brand"
+                  class="navbar-brand"
+                  height="20"
+                />
+              </a>
+              <div class="nav-toggle">
+                <button class="btn btn-toggle toggle-sidebar">
+                  <i class="gg-menu-right"></i>
+                </button>
+                <button class="btn btn-toggle sidenav-toggler">
+                  <i class="gg-menu-left"></i>
+                </button>
+              </div>
+              <button class="topbar-toggler more">
+                <i class="gg-more-vertical-alt"></i>
+              </button>
+            </div>
+            <!-- End Logo Header -->
+          </div>
+          <!-- Navbar Header -->
+          <nav
+            class="navbar navbar-header navbar-header-transparent navbar-expand-lg border-bottom"
+          >
+            <div class="container-fluid">
+              <ul class="navbar-nav topbar-nav ms-md-auto align-items-center">
+                <li
+                  class="nav-item topbar-icon dropdown hidden-caret d-flex d-lg-none"
+                >
+                  <a
+                    class="nav-link dropdown-toggle"
+                    data-bs-toggle="dropdown"
+                    href="#"
+                    role="button"
+                    aria-expanded="false"
+                    aria-haspopup="true"
+                  >
+                    <i class="fa fa-search"></i>
+                  </a>
+                  <ul class="dropdown-menu dropdown-search animated fadeIn">
+                    <form class="navbar-left navbar-form nav-search">
+                      <div class="input-group">
+                        <input
+                          type="text"
+                          placeholder="Search ..."
+                          class="form-control"
+                        />
+                      </div>
+                    </form>
+                  </ul>
+                </li>
+
+                <li class="nav-item topbar-user dropdown hidden-caret">
+                  <a
+                    class="dropdown-toggle profile-pic"
+                    data-bs-toggle="dropdown"
+                    href="#"
+                    aria-expanded="false"
+                  >
+                    <span class="profile-username">
+                      <span class="op-7">Halo,</span>
+                      <!-- Menampilkan nama user yang login -->
+                      <span class="fw-bold">{{ request.user.username }}</span>
+                    </span>
+                  </a>
+                  <ul class="dropdown-menu dropdown-user animated fadeIn">
+                    <div class="dropdown-user-scroll scrollbar-outer">
+                      <li>
+                        <div class="user-box">
+                          <div class="u-text">
+                            <!-- Menampilkan nama user yang login -->
+                            <h4>{{ request.user.username }}</h4>
+                            <!-- Menampilkan email user yang login -->
+                            <p class="text-muted">{{ request.user.email }}</p>
+                            <a
+                              href="{% url 'logout' %}"
+                              class="btn btn-xs btn-secondary btn-sm"
+                              >Logout</a
+                            >
+                          </div>
+                        </div>
+                      </li>
+                    </div>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </nav>
+          <!-- End Navbar -->
+        </div>
+
+        <div class="container">
+          <div class="page-inner">
+            <div
+              class="d-flex align-items-left align-items-md-center flex-column flex-md-row pt-2 pb-4"
+            >
+              <div>
+                <h3 class="fw-bold mb-3">Hasil Rekomendasi</h3>
+                <h6 class="op-7 mb-2">Hasil Rekomendasi yang Dipilih</h6>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-md-12">
+                <div class="card card-round">
+                  <div class="card-body">
+                    <div class="row">
+                      <div class="table-responsive table-hover table-sales">
+                        <table class="table table-striped" id="table1">
+                            <thead>
+                                <tr>
+                                    <th style="text-align: center">No</th>
+                                    <th style="text-align: center">Rekomendasi Utama</th>
+                                    <th style="text-align: center">Rekomendasi Pendamping</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for rekomendasi in rekomendasi_list %}
+                                <tr>
+                                    <td style="text-align: center">{{ forloop.counter }}</td>
+                                    <td style="text-align: center">
+                                        {{ rekomendasi.utama }} ({{ rekomendasi.utama_count }})
+                                    </td>
+                                    <td style="text-align: center">
+                                        {{ rekomendasi.pendamping }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>                                                                                                                                                                                                                                                                                                                                                                                                              
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {% include "layout/footer.html" %}
+        
+      </div>
+    </div>
+    
+    <!-- Start JS CDN -->
+    {% include "layout/footjs.html" %}
+    <!-- End JS CDN -->
+  </body>
+</html>
