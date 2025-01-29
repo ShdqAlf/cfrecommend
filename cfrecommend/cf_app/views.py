@@ -12,6 +12,9 @@ from django.contrib import messages
 from django.contrib.auth import logout as auth_logout
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
+from sklearn.metrics import precision_score, recall_score, f1_score, mean_squared_error
+import numpy as np
+
 
 @login_required(login_url='login')
 def dashboard(request):
@@ -660,3 +663,136 @@ def rekomendasipelayan(request):
     }
 
     return render(request, 'rekomendasipelayan/rekomendasipelayan.html', context)
+
+@login_required(login_url='login')
+def stateofart(request):
+    # Ambil semua pesanan dari database
+    pesanan = Pesanan.objects.select_related('item', 'user').all()
+
+    # Buat DataFrame dengan data pengguna dan item
+    data = pd.DataFrame(list(pesanan.values('user_id', 'item_id')))
+    
+    # Buat matriks user-item
+    user_item_matrix = data.pivot_table(index='user_id', columns='item_id', aggfunc='size', fill_value=0)
+
+    # ---------------- Perhitungan IBCF ----------------
+    item_similarity = cosine_similarity(user_item_matrix.T)
+    item_similarity_df = pd.DataFrame(item_similarity, index=user_item_matrix.columns, columns=user_item_matrix.columns)
+
+    rekomendasi_ibcf = {}
+    for item_id in user_item_matrix.columns:
+        utama_name = Pesanan.objects.filter(item_id=item_id).first().item.name
+        utama_count = pesanan.filter(item_id=item_id).count()
+        
+        similar_items = item_similarity_df[item_id].sort_values(ascending=False)[1:6]  
+        rekomendasi_ibcf[item_id] = {
+            'utama': utama_name,
+            'utama_count': utama_count,
+            'pendamping': [
+                {
+                    'name': Pesanan.objects.filter(item_id=sim_item).first().item.name,
+                    'count': pesanan.filter(item_id=sim_item).count(),
+                }
+                for sim_item, similarity in similar_items.items() if similarity > 0.0
+            ]
+        }
+
+    rekomendasi_ibcf_list = [
+        {
+            'utama': f"{value['utama']} ({value['utama_count']})",
+            'pendamping': ', '.join([f"{rel['name']} ({rel['count']})" for rel in value['pendamping']])
+        }
+        for key, value in rekomendasi_ibcf.items()
+    ]
+
+    # ---------------- Perhitungan UBCF ----------------
+    user_similarity = cosine_similarity(user_item_matrix)
+    user_similarity_df = pd.DataFrame(user_similarity, index=user_item_matrix.index, columns=user_item_matrix.index)
+
+    rekomendasi_ubcf = {}
+    for user_id in user_item_matrix.index:
+        user_name = Pesanan.objects.filter(user_id=user_id).first().user.name
+
+        # Hanya pilih pengguna dengan similarity > 0.5
+        similar_users = user_similarity_df[user_id][user_similarity_df[user_id] > 0.1].sort_values(ascending=False)[1:6]
+
+        recommended_items = set()
+        for sim_user in similar_users.index:
+            sim_user_items = set(data[data['user_id'] == sim_user]['item_id'])
+            current_user_items = set(data[data['user_id'] == user_id]['item_id'])
+            new_recommendations = sim_user_items - current_user_items
+
+            # Hindari duplikasi item dalam rekomendasi
+            for item_id in new_recommendations:
+                item_name = Pesanan.objects.filter(item_id=item_id).first().item.name
+                recommended_items.add(item_name)
+
+        rekomendasi_ubcf[user_id] = {
+            'user': user_name,
+            'pendamping': list(recommended_items)[:5]  # Batasi max 5 rekomendasi unik
+        }
+
+    rekomendasi_ubcf_list = [
+        {
+            'user': value['user'],
+            'pendamping': ', '.join(value['pendamping'])
+        }
+        for key, value in rekomendasi_ubcf.items()
+    ]
+
+    # ---------------- Evaluasi Metrik ----------------
+    ground_truth = {user: set(data[data['user_id'] == user]['item_id']) for user in user_item_matrix.index}
+
+    predictions_ibcf = {user: set() for user in user_item_matrix.index}
+    for item_id, rec in rekomendasi_ibcf.items():
+        for user_id in user_item_matrix.index:
+            if item_id in user_item_matrix.columns and user_item_matrix.loc[user_id, item_id] > 0:
+                predictions_ibcf[user_id].update(set([x['name'] for x in rec['pendamping']]))
+
+    predictions_ubcf = {user: set(rekomendasi_ubcf[user]['pendamping']) for user in rekomendasi_ubcf}
+
+    y_true = []
+    y_pred_ibcf = []
+    y_pred_ubcf = []
+
+    for user in ground_truth:
+        truth = ground_truth[user]
+        y_true.extend([1 if item in truth else 0 for item in user_item_matrix.columns])
+
+        y_pred_ibcf.extend([1 if item in predictions_ibcf[user] else 0 for item in user_item_matrix.columns])
+        y_pred_ubcf.extend([1 if item in predictions_ubcf.get(user, set()) else 0 for item in user_item_matrix.columns])
+
+    actual_ratings = user_item_matrix.to_numpy().flatten()
+    predicted_ratings_ibcf = np.zeros_like(actual_ratings)
+    predicted_ratings_ubcf = np.zeros_like(actual_ratings)
+
+    for i, user in enumerate(user_item_matrix.index):
+        for j, item in enumerate(user_item_matrix.columns):
+            if item in predictions_ibcf[user]:
+                predicted_ratings_ibcf[i * len(user_item_matrix.columns) + j] = 1
+            if item in predictions_ubcf.get(user, set()):
+                predicted_ratings_ubcf[i * len(user_item_matrix.columns) + j] = 1
+
+    rmse_ibcf = np.sqrt(mean_squared_error(actual_ratings, predicted_ratings_ibcf))
+    rmse_ubcf = np.sqrt(mean_squared_error(actual_ratings, predicted_ratings_ubcf))
+
+    # ---------------- Debugging Print Statements ----------------
+    print("\n📌 Rekomendasi IBCF")
+    for rec in rekomendasi_ibcf_list[:5]:  # Print 5 contoh
+        print(rec)
+
+    print("\n📌 Rekomendasi UBCF")
+    for rec in rekomendasi_ubcf_list[:5]:  # Print 5 contoh
+        print(rec)
+
+    is_admin = request.user.groups.filter(name="Admin").exists()
+    is_user = request.user.groups.filter(name="User").exists()
+
+    context = {
+        'rekomendasi_ibcf_list': rekomendasi_ibcf_list,
+        'rekomendasi_ubcf_list': rekomendasi_ubcf_list,
+        'is_admin': is_admin,
+        'is_user': is_user,
+    }
+
+    return render(request, 'stateofart/stateofart.html', context)
